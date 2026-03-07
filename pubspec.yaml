@@ -1,7 +1,7 @@
 name: amis_utils
-description: A collection of utility classes for Flutter applications
+description: A collection of utility classes for Flutter applications. Available on Gitee and GitHub.
 version: 0.1.0
-homepage: https://github.com/yourusername/vibe_utils
+homepage: https://github.com/AmisKwok/amis_utils.git
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

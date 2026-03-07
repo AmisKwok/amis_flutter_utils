@@ -1,4 +1,4 @@
-import 'package:amis_utils/src/utils/app_logger.dart';
+import 'package:amis_flutter_utils/src/utils/app_logger.dart';
 import 'package:hive_flutter/adapters.dart';
 
 /// Hive工具类，用于封装Hive数据库的操作

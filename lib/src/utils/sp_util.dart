@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:amis_utils/src/utils/app_logger.dart';
+import 'package:amis_flutter_utils/src/utils/app_logger.dart';
 
 /// SharedPreferences 工具类
 ///

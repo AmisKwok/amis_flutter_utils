@@ -1,5 +1,5 @@
-// amis_utils.dart
-library amis_utils;
+// amis_flutter_utils.dart
+library amis_flutter_utils;
 
 export 'src/utils/app_logger.dart';
 export 'src/utils/sp_util.dart';

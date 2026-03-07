@@ -1,8 +1,8 @@
 ## Additional information
 
 ### Repository Links
-- Gitee: [https://gitee.com/AmisKwok/amis_utils.git](https://gitee.com/AmisKwok/amis_utils.git)
-- GitHub: [https://github.com/AmisKwok/amis_utils.git](https://github.com/AmisKwok/amis_utils.git)
+- Gitee: [https://gitee.com/AmisKwok/amis_flutter_utils.git](https://gitee.com/AmisKwok/amis_flutter_utils.git)
+- GitHub: [https://github.com/AmisKwok/amis_flutter_utils.git](https://github.com/AmisKwok/amis_flutter_utils.git)
 
 
-# amis_utils
+# amis_flutter_utils

@@ -15,7 +15,7 @@ class HiveUtil {
   /// 工厂构造函数，返回单例对象
   factory HiveUtil() => _instance;
 
-  static const String defaultBoxName = 'amis_shop_box';
+  static const String defaultBoxName = 'hive_box';
 
   /// 初始化Hive数据库
   /// [boxNamesList] 需要打开的Box名称列表

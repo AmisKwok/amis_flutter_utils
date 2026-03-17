@@ -15,13 +15,16 @@ class HiveUtil {
   /// 工厂构造函数，返回单例对象
   factory HiveUtil() => _instance;
 
-  static const String defaultBoxName = 'hive_box';
+  // 存储默认的box名称
+  String _defaultBoxName = 'default_box';
 
   /// 初始化Hive数据库
-  /// [boxNamesList] 需要打开的Box名称列表
+  /// [boxName] 要使用的默认Box名称
+  /// [boxNamesList] 需要打开的其他Box名称列表
   /// [adapterList] 需要注册的适配器列表
   Future<void> init({
-    List<String> boxNamesList = const [defaultBoxName],
+    required String boxName,
+    List<String> boxNamesList = const [],
     List<dynamic> adapterList = const [],
   }) async {
     try {
@@ -33,11 +36,18 @@ class HiveUtil {
         Hive.registerAdapter(adapter);
       }
 
+      /// 存储默认box名称
+      _defaultBoxName = boxName;
+
+      /// 构建完整的box名称列表
+      final allBoxNames = [boxName, ...boxNamesList];
+
       /// 打开Box
-      for (var boxName in boxNamesList) {
-        await Hive.openBox(boxName);
+      for (var name in allBoxNames) {
+        await Hive.openBox(name);
       }
-      AppLogger().d('HiveUtil 初始化成功');
+
+      AppLogger().d('HiveUtil 初始化成功，默认Box: $_defaultBoxName');
     } catch (e) {
       AppLogger().e('HiveUtil 初始化失败: $e');
     }
@@ -48,15 +58,15 @@ class HiveUtil {
   /// 存储数据
   /// [key] 键
   /// [value] 值
-  /// [boxName] Box名称，默认为defaultBoxName
+  /// [boxName] Box名称，默认为初始化时指定的box名称
   Future<void> put(
-    String key,
-    dynamic value, {
-    String boxName = defaultBoxName,
-  }) async {
+      String key,
+      dynamic value, {
+        String? boxName,
+      }) async {
     try {
       /// 获取Box
-      Box box = _getBox(boxName);
+      Box box = _getBox(boxName ?? _defaultBoxName);
 
       /// 存储数据
       await box.put(key, value);
@@ -69,36 +79,20 @@ class HiveUtil {
 
   /// 获取数据
   /// [key] 键
-  /// [boxName] Box名称，默认为defaultBoxName
+  /// [boxName] Box名称，默认为初始化时指定的box名称
   /// 返回数据
-  T? get<T>(String key, {String boxName = defaultBoxName}) {
+  T? get<T>(String key, {String? boxName}) {
     try {
       /// 获取Box
-      Box box = _getBox(boxName);
+      Box box = _getBox(boxName ?? _defaultBoxName);
 
       /// 获取数据
       return box.get(key) as T?;
     } catch (e) {
       AppLogger().e('HiveUtil 获取数据失败: $e');
     }
+
     return null;
-  }
-
-  /// 删除数据
-  /// [key] 键
-  /// [boxName] Box名称，默认为defaultBoxName
-  Future<void> delete(String key, {String boxName = defaultBoxName}) async {
-    try {
-      /// 获取Box
-      Box box = _getBox(boxName);
-
-      /// 删除数据
-      await box.delete(key);
-    } catch (e) {
-      AppLogger().e('HiveUtil 删除数据失败: $e');
-    }
-
-    return;
   }
 
   /// 获取Box

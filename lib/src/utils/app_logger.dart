@@ -43,13 +43,13 @@ class AppLogger {
   ///
   /// 示例:
   /// ```dart
-  /// void main() async {
+  /// void main() {
   ///   WidgetsFlutterBinding.ensureInitialized();
-  ///   await AppLogger().initialize();
+  ///   AppLogger().initialize();  // 同步初始化，不阻塞启动
   ///   runApp(MyApp());
   /// }
   /// ```
-  Future<void> initialize({
+  void initialize({
     DateTimeFormatter dateTimeFormat = DateTimeFormat.none,
     bool printError = true,
     int methodCount = 2,
@@ -57,26 +57,13 @@ class AppLogger {
     int lineLength = 120,
     bool colors = true,
     Level level = Level.trace,
-  }) async {
+  }) {
     // 防止重复初始化
     if (_isInitialized) {
       if (kDebugMode) {
         _logToLogcat('AppLogger', '警告: AppLogger已经被初始化', Level.warning);
       }
       return;
-    }
-
-    // 获取应用名称
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      _appName = packageInfo.appName;
-      // 如果应用名称为空，则使用包名最后一段
-      if (_appName.isEmpty) {
-        _appName = packageInfo.packageName.split('.').last;
-      }
-    } catch (e) {
-      // 获取失败时使用默认值
-      _appName = 'App';
     }
 
     // 设置全局日志级别
@@ -98,6 +85,25 @@ class AppLogger {
     );
 
     _isInitialized = true;
+
+    // 异步获取应用名称，不阻塞启动
+    _loadAppName();
+  }
+
+  /// 异步加载应用名称
+  /// 在后台执行，不影响启动速度
+  Future<void> _loadAppName() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      _appName = packageInfo.appName;
+      // 如果应用名称为空，则使用包名最后一段
+      if (_appName.isEmpty) {
+        _appName = packageInfo.packageName.split('.').last;
+      }
+    } catch (e) {
+      // 获取失败时使用默认值
+      _appName = 'App';
+    }
   }
 
   /// 判断是否为生产环境

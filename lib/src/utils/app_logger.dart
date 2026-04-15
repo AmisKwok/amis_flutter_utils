@@ -317,10 +317,15 @@ class AppLogger {
 }
 
 /// 自定义日志输出类
-/// 用于拦截 Logger 的输出，避免重复打印
+/// 同时输出到控制台和 Logcat
 class _LogcatOutput extends LogOutput {
   @override
   void output(OutputEvent event) {
-    // 空实现，日志已通过 _logToLogcat 输出到 Logcat
+    // 输出到控制台（所有平台）
+    final lines = event.lines;
+    for (final line in lines) {
+      // ignore: avoid_print
+      print(line);
+    }
   }
 }

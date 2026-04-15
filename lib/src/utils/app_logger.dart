@@ -1,37 +1,35 @@
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// 应用级日志管理工具类
 /// 提供统一的日志记录功能，支持不同环境配置和日志级别控制
+/// 支持真正的 Android Logcat Tag 过滤功能
+/// 支持自动获取调用者类名作为 tag
 class AppLogger {
-  // 单例模式实现
   static final AppLogger _instance = AppLogger._internal();
 
-  /// 获取单例实例
   factory AppLogger() => _instance;
 
-  /// 私有构造函数，防止外部实例化
   AppLogger._internal();
 
-  // 日志核心对象
   late final Logger _logger;
-  // 初始化标记，防止重复初始化
   bool _isInitialized = false;
+  String _appName = 'App';
 
   /// 初始化日志配置
+  /// 必须在 main() 中调用，建议在 runApp() 之前
   ///
-  /// [参数说明]:
-  /// - [dateTimeFormat]: 时间显示格式配置
-  ///   - `DateTimeFormat.none`: 不显示时间戳
-  ///   - `DateTimeFormat.microsecond`: 显示微秒级时间(HH:mm:ss.SSSSSS)
-  ///   - `DateTimeFormat.onlyTimeAndSinceStart`: 显示时间及应用启动后时长
-  /// - [printError]: 是否打印错误堆栈信息(默认true)
-  /// - [methodCount]: 开发环境下打印的调用栈方法数(默认2)
-  /// - [errorMethodCount]: 错误日志打印的调用栈方法数(默认8)
-  /// - [lineLength]: 日志行最大字符数(默认120，用于自动换行)
-  /// - [colors]: 是否使用ANSI颜色输出(默认true)
-  /// - [level]: 日志记录级别(默认Level.trace，记录所有日志)
-  void initialize({
+  /// 示例:
+  /// ```dart
+  /// void main() async {
+  ///   WidgetsFlutterBinding.ensureInitialized();
+  ///   await AppLogger().initialize();
+  ///   runApp(MyApp());
+  /// }
+  /// ```
+  Future<void> initialize({
     DateTimeFormatter dateTimeFormat = DateTimeFormat.none,
     bool printError = true,
     int methodCount = 2,
@@ -39,67 +37,184 @@ class AppLogger {
     int lineLength = 120,
     bool colors = true,
     Level level = Level.trace,
-  }) {
-    // 防止重复初始化
+  }) async {
     if (_isInitialized) {
       if (kDebugMode) {
-        _logger.w('警告: AppLogger已经被初始化');
+        _logToLogcat('AppLogger', '警告: AppLogger已经被初始化', Level.warning);
       }
       return;
     }
 
-    // 设置全局日志级别
+    // 获取应用名称
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      _appName = packageInfo.appName;
+      if (_appName.isEmpty) {
+        _appName = packageInfo.packageName.split('.').last;
+      }
+    } catch (e) {
+      _appName = 'App';
+    }
+
     Logger.level = level;
 
-    // 创建日志记录器实例
     _logger = Logger(
-      // 配置日志格式化输出
       printer: PrettyPrinter(
-        methodCount: methodCount, // 开发环境调用栈深度
-        errorMethodCount: errorMethodCount, // 错误调用栈深度
-        lineLength: lineLength, // 行宽限制(自动换行)
-        colors: colors, // 是否使用颜色
-        dateTimeFormat: dateTimeFormat, // 时间显示格式
+        methodCount: methodCount,
+        errorMethodCount: errorMethodCount,
+        lineLength: lineLength,
+        colors: colors,
+        dateTimeFormat: dateTimeFormat,
       ),
-      // 配置日志过滤器
       filter: _isProduction() ? ProductionFilter() : DevelopmentFilter(),
+      output: _LogcatOutput(),
     );
 
     _isInitialized = true;
   }
 
-  /// 判断是否为生产环境
-  ///
-  /// 默认返回false(开发环境)，实际项目中可通过环境变量判断
-  /// 例如: const bool.fromEnvironment('dart.vm.product')
   bool _isProduction() {
-    return false; // 默认开发环境
+    return false;
   }
 
-  // 日志记录方法(委托给底层Logger实现)
-  // 每个方法对应一个日志级别
+  /// 自动获取调用者的类名
+  /// 通过解析调用栈来获取调用日志方法的类名
+  String _getCallerClassName() {
+    try {
+      final stackTrace = StackTrace.current.toString();
+      final lines = stackTrace.split('\n');
 
-  /// 记录trace级别日志(最详细，开发调试用)
-  void t(dynamic message, {dynamic error, StackTrace? stackTrace}) =>
-      _logger.t(message, error: error, stackTrace: stackTrace);
+      for (int i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        if (line.contains('AppLogger.') &&
+            !line.contains('_getCallerClassName')) {
+          if (i + 1 < lines.length) {
+            final callerLine = lines[i + 1];
+            final match =
+                RegExp(r'package:[^/]+/(.+)\.dart').firstMatch(callerLine);
+            if (match != null) {
+              final filePath = match.group(1) ?? '';
+              final parts = filePath.split('/');
+              final fileName = parts.isNotEmpty ? parts.last : filePath;
+              if (fileName.isNotEmpty && fileName != 'app_logger') {
+                return _formatClassName(fileName);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // 解析失败
+    }
 
-  /// 记录debug级别日志(调试信息)
-  void d(dynamic message, {dynamic error, StackTrace? stackTrace}) =>
-      _logger.d(message, error: error, stackTrace: stackTrace);
+    return _appName;
+  }
 
-  /// 记录info级别日志(普通信息)
-  void i(dynamic message, {dynamic error, StackTrace? stackTrace}) =>
-      _logger.i(message, error: error, stackTrace: stackTrace);
+  /// 格式化类名
+  /// 将 snake_case 或 camelCase 转换为 PascalCase
+  String _formatClassName(String fileName) {
+    if (fileName.isEmpty) return _appName;
 
-  /// 记录warning级别日志(警告信息)
-  void w(dynamic message, {dynamic error, StackTrace? stackTrace}) =>
-      _logger.w(message, error: error, stackTrace: stackTrace);
+    final buffer = StringBuffer();
+    bool capitalizeNext = true;
 
-  /// 记录error级别日志(错误信息)
-  void e(dynamic message, {dynamic error, StackTrace? stackTrace}) =>
-      _logger.e(message, error: error, stackTrace: stackTrace);
+    for (int i = 0; i < fileName.length; i++) {
+      final char = fileName[i];
+      if (char == '_' || char == '-') {
+        capitalizeNext = true;
+      } else {
+        buffer.write(capitalizeNext ? char.toUpperCase() : char);
+        capitalizeNext = false;
+      }
+    }
 
-  /// 记录wtf级别日志(严重错误，What a Terrible Failure)
-  void f(dynamic message, {dynamic error, StackTrace? stackTrace}) =>
-      _logger.f(message, error: error, stackTrace: stackTrace);
+    return buffer.toString();
+  }
+
+  void _logToLogcat(String tag, dynamic message, Level level,
+      {dynamic error, StackTrace? stackTrace}) {
+    if (_isProduction()) return;
+
+    final messageStr = message?.toString() ?? '';
+
+    developer.log(
+      messageStr,
+      time: DateTime.now(),
+      name: tag,
+      level: _levelToInt(level),
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
+  int _levelToInt(Level level) {
+    switch (level) {
+      case Level.trace:
+      case Level.debug:
+        return 500;
+      case Level.info:
+        return 800;
+      case Level.warning:
+        return 900;
+      case Level.error:
+        return 1000;
+      case Level.fatal:
+        return 2000;
+      default:
+        return 800;
+    }
+  }
+
+  void t(dynamic message,
+      {String? tag, dynamic error, StackTrace? stackTrace}) {
+    final actualTag = tag ?? _getCallerClassName();
+    _logToLogcat(actualTag, message, Level.trace,
+        error: error, stackTrace: stackTrace);
+    _logger.t(message, error: error, stackTrace: stackTrace);
+  }
+
+  void d(dynamic message,
+      {String? tag, dynamic error, StackTrace? stackTrace}) {
+    final actualTag = tag ?? _getCallerClassName();
+    _logToLogcat(actualTag, message, Level.debug,
+        error: error, stackTrace: stackTrace);
+    _logger.d(message, error: error, stackTrace: stackTrace);
+  }
+
+  void i(dynamic message,
+      {String? tag, dynamic error, StackTrace? stackTrace}) {
+    final actualTag = tag ?? _getCallerClassName();
+    _logToLogcat(actualTag, message, Level.info,
+        error: error, stackTrace: stackTrace);
+    _logger.i(message, error: error, stackTrace: stackTrace);
+  }
+
+  void w(dynamic message,
+      {String? tag, dynamic error, StackTrace? stackTrace}) {
+    final actualTag = tag ?? _getCallerClassName();
+    _logToLogcat(actualTag, message, Level.warning,
+        error: error, stackTrace: stackTrace);
+    _logger.w(message, error: error, stackTrace: stackTrace);
+  }
+
+  void e(dynamic message,
+      {String? tag, dynamic error, StackTrace? stackTrace}) {
+    final actualTag = tag ?? _getCallerClassName();
+    _logToLogcat(actualTag, message, Level.error,
+        error: error, stackTrace: stackTrace);
+    _logger.e(message, error: error, stackTrace: stackTrace);
+  }
+
+  void f(dynamic message,
+      {String? tag, dynamic error, StackTrace? stackTrace}) {
+    final actualTag = tag ?? _getCallerClassName();
+    _logToLogcat(actualTag, message, Level.fatal,
+        error: error, stackTrace: stackTrace);
+    _logger.f(message, error: error, stackTrace: stackTrace);
+  }
+}
+
+class _LogcatOutput extends LogOutput {
+  @override
+  void output(OutputEvent event) {}
 }
